@@ -1,0 +1,83 @@
+{
+    "address": "",
+    "businessType": "",
+    "category": "Food & Restaurant",
+    "city": "Bangalore",
+    "email": "",
+    "establishedYear": "",
+    "gstNumber": "",
+    "name": "",
+    "personName": "",
+    "phone": "9876543210",
+    "pincode": "",
+    "products": [
+        {
+            "category": "",
+            "description": "Fresh Vegetable",
+            "name": "Vegetable",
+            "price": 0,
+            "quantity": 1,
+            "unit": ""
+        },
+        {
+            "category": "",
+            "description": "Fresh Fruit",
+            "name": "Fruit",
+            "price": 0,
+            "quantity": 1,
+            "unit": ""
+        },
+        {
+            "category": "",
+            "description": "Fresh Sweet",
+            "name": "Sweet",
+            "price": 0,
+            "quantity": 1,
+            "unit": ""
+        },
+        {
+            "category": "General",
+            "description": "Fresh 1",
+            "name": "1",
+            "price": 200,
+            "quantity": 1,
+            "unit": "litre"
+        },
+        {
+            "category": "General",
+            "description": "Fresh 5",
+            "name": "5",
+            "price": 300,
+            "quantity": 1,
+            "unit": "kg"
+        },
+        {
+            "category": "General",
+            "description": "Fresh 10",
+            "name": "10",
+            "price": 500,
+            "quantity": 1,
+            "unit": "kg"
+        },
+        {
+            "category": "Food",
+            "description": "Fresh Tomato",
+            "name": "Tomato",
+            "price": 0,
+            "quantity": 1,
+            "unit": "pcs"
+        },
+        {
+            "category": "Food",
+            "description": "Fresh Rice",
+            "name": "Rice",
+            "price": 0,
+            "quantity": 1,
+            "unit": "pcs"
+        }
+    ],
+    "state": "Bangalore",
+    "subcategory": "Electronics",
+    "transcription": "So, product entry coconut oil 1 litre 200 rupees, add chai rice 5 kg 300 rupees, wheat flour 10 kg 500 rupees, tomato 40 rupees per kilo.",
+    "website": ""
+}

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; cursor: pointer; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Ekthaa Voice Onboarding - Debug</h1>
+    
+    <h2>Test API Endpoints</h2>
+    <button onclick="testGetSessions()">1. Test Get Sessions</button>
+    <button onclick="testFlaskRedirect()">2. Test Flask Redirect</button>
+    <button onclick="testReactApp()">3. Open React App</button>
+    
+    <div id="results"></div>
+
+    <script>
+        async function testGetSessions() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h3>Testing Get Sessions...</h3>';
+            
+            try {
+                const response = await fetch('http://127.0.0.1:5000/get_sessions');
+                const data = await response.json();
+                
+                results.innerHTML = `
+                    <div class="success">✅ Get Sessions API Working!</div>
+                    <h4>Found ${data.data ? data.data.length : 0} sessions:</h4>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                results.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testFlaskRedirect() {
+            window.open('http://127.0.0.1:5000', '_blank');
+        }
+        
+        function testReactApp() {
+            window.open('http://localhost:3000', '_blank');
+        }
+        
+        // Auto-test on load
+        window.onload = () => {
+            testGetSessions();
+        };
+    </script>
+</body>
+</html>
