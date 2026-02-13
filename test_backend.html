@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Tester</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+        }
+
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            overflow-x: auto;
+            max-height: 300px;
+        }
+
+        .status {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        input[type="file"] {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Backend API Tester</h1>
+
+    <div class="section">
+        <h2>1. API Health Check</h2>
+        <button onclick="checkHealth()">Check API Status</button>
+        <div id="healthStatus" class="status"></div>
+        <pre id="healthResponse"></pre>
+    </div>
+
+    <div class="section">
+        <h2>2. Business Audio Upload</h2>
+        <input type="file" id="businessAudio" accept="audio/*">
+        <button
+            onclick="uploadAudio('businessAudio', '/upload_business_audio', 'businessResult', 'businessStatus')">Upload
+            & Process</button>
+        <div id="businessStatus" class="status"></div>
+        <pre id="businessResult"></pre>
+    </div>
+
+    <div class="section">
+        <h2>3. Product Audio Upload</h2>
+        <input type="file" id="productAudio" accept="audio/*">
+        <button onclick="uploadAudio('productAudio', '/upload_product_audio', 'productResult', 'productStatus')">Upload
+            & Process</button>
+        <div id="productStatus" class="status"></div>
+        <pre id="productResult"></pre>
+    </div>
+
+    <div class="section">
+        <h2>4. Get All Sessions</h2>
+        <button onclick="getSessions()">List Sessions</button>
+        <div id="sessionsStatus" class="status"></div>
+        <pre id="sessionsResult"></pre>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5001';
+
+        async function checkHealth() {
+            const statusDiv = document.getElementById('healthStatus');
+            const resultPre = document.getElementById('healthResponse');
+            statusDiv.textContent = '⏳ Checking...';
+            resultPre.textContent = '';
+
+            try {
+                const res = await fetch(`${API_URL}/api`);
+                const data = await res.json();
+                statusDiv.textContent = '✅ API is running';
+                resultPre.textContent = JSON.stringify(data, null, 2);
+            } catch (err) {
+                statusDiv.textContent = '❌ API is unreachable';
+                resultPre.textContent = err.toString();
+            }
+        }
+
+        async function uploadAudio(inputId, endpoint, resultId, statusId) {
+            const fileInput = document.getElementById(inputId);
+            const resultPre = document.getElementById(resultId);
+            const statusDiv = document.getElementById(statusId);
+
+            if (!fileInput.files[0]) {
+                alert('Please select an audio file first');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('audio', fileInput.files[0]);
+
+            statusDiv.textContent = '⏳ Uploading and processing...';
+            resultPre.textContent = '';
+
+            try {
+                const res = await fetch(`${API_URL}${endpoint}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    statusDiv.textContent = '✅ Success';
+                } else {
+                    statusDiv.textContent = '❌ Error';
+                }
+                resultPre.textContent = JSON.stringify(data, null, 2);
+            } catch (err) {
+                statusDiv.textContent = '❌ Network Error';
+                resultPre.textContent = err.toString();
+            }
+        }
+
+        async function getSessions() {
+            const statusDiv = document.getElementById('sessionsStatus');
+            const resultPre = document.getElementById('sessionsResult');
+            statusDiv.textContent = '⏳ Fetching...';
+            resultPre.textContent = '';
+
+            try {
+                const res = await fetch(`${API_URL}/get_sessions`);
+                const data = await res.json();
+                statusDiv.textContent = '✅ Success';
+                resultPre.textContent = JSON.stringify(data, null, 2);
+            } catch (err) {
+                statusDiv.textContent = '❌ Error';
+                resultPre.textContent = err.toString();
+            }
+        }
+    </script>
+</body>
+
+</html>

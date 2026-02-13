@@ -641,7 +641,17 @@ def transcribe_audio(path):
 # ================== ROUTES ==================
 @app.route("/")
 def index():
-    return redirect("http://localhost:3000")
+    return jsonify({
+        "message": "AI-SST Backend API is running",
+        "endpoints": [
+            "/upload_business_audio (POST)",
+            "/upload_product_audio (POST)", 
+            "/save (POST)",
+            "/get_sessions (GET)",
+            "/get_session/<filename> (GET)",
+            "/delete_session/<filename> (DELETE)"
+        ]
+    })
 
 @app.route("/api")
 def api_info():
@@ -952,4 +962,4 @@ if __name__ == "__main__":
     print(f"📂 Upload Folder: {UPLOAD_FOLDER}")
     print(f"📂 Data Folder: {DATA_FOLDER}")
     print("="*50 + "\n")
-    app.run(debug=True)
+    app.run(debug=True, port=5001)
