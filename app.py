@@ -414,12 +414,23 @@ def extract_products_fallback(text):
     text_lower = text.lower()
     products = []
     
+    # Pattern priority order (most specific to least specific):
+    # 1. name quantity unit price: "rice 2 kg 400"
+    # 2. quantity unit name price: "2 kg rice 400" 
+    # 3. name unit price: "rice kg 400"
+    # 4. name price unit: "rice 400 kg"
+    # 5. name price: "rice 400"
     product_patterns = [
-        r'(\d+)\s+(kg|grams|pcs|pieces|liter|litre|dozen|packet|bottle|box)\s+(\w+)\s+(?:at|@|for|rupees?|rs\.?|₹)\s*(\d+)',
-        r'(\w+)\s+(kg|grams|pcs|pieces|liter|litre|dozen|packet|bottle|box)\s+(?:at|@|for|rupees?|rs\.?|₹)\s*(\d+)',
-        r'(\w+)\s+(?:at|@|for|rupees?|rs\.?|₹)\s*(\d+)\s+(?:per\s+)?(kg|grams|pcs|pieces|liter|litre|dozen|packet|bottle|box)',
-        r'(\w+)\s+(?:at|@|for|rupees?|rs\.?|₹)\s*(\d+)',
-        r'(\d+)\s+(kg|grams|pcs|pieces|liter|litre|dozen|packet|bottle|box)\s+(\w+)',
+        # Pattern: name(noun) quantity(number) unit price(number) - e.g., "rice 2 kg 400"
+        r'([a-zA-Z]+)\s+(\d+)\s+(kg|grams|pcs|pieces|liter|litre|dozen|packet|bottle|box)\s+(?:at|@|for|rupees?|rs\.?|₹)?\s*(\d+)',
+        # Pattern: quantity(number) unit name(noun) price(number) - e.g., "2 kg rice 400"
+        r'(\d+)\s+(kg|grams|pcs|pieces|liter|litre|dozen|packet|bottle|box)\s+([a-zA-Z]+)\s+(?:at|@|for|rupees?|rs\.?|₹)?\s*(\d+)',
+        # Pattern: name(noun) unit price(number) - e.g., "rice kg 400"
+        r'([a-zA-Z]+)\s+(kg|grams|pcs|pieces|liter|litre|dozen|packet|bottle|box)\s+(?:at|@|for|rupees?|rs\.?|₹)?\s*(\d+)',
+        # Pattern: name(noun) price(number) unit - e.g., "rice 400 kg"
+        r'([a-zA-Z]+)\s+(?:at|@|for|rupees?|rs\.?|₹)?\s*(\d+)\s+(?:per\s+)?(kg|grams|pcs|pieces|liter|litre|dozen|packet|bottle|box)',
+        # Pattern: name(noun) price(number) - e.g., "rice 400"
+        r'([a-zA-Z]+)\s+(?:at|@|for|rupees?|rs\.?|₹)?\s*(\d+)',
     ]
     
     product_keywords = [
@@ -441,92 +452,67 @@ def extract_products_fallback(text):
         "Health": ["medicine", "tablet", "vitamin", "cream", "oil"]
     }
     
+    
     extracted_names = set()
     
-    for pattern in product_patterns:
+    # Unit keywords that should never be product names
+    unit_keywords = {'kg', 'grams', 'pcs', 'pieces', 'liter', 'litre', 'dozen', 'packet', 'bottle', 'box', 'gram', 'kilogram'}
+    
+    # Process each pattern in priority order
+    for pattern_idx, pattern in enumerate(product_patterns):
         matches = re.findall(pattern, text_lower)
         for match in matches:
-            if isinstance(match, tuple):
-                if len(match) == 4:
-                    quantity, unit, name, price = match
-                    if name not in extracted_names:
-                        extracted_names.add(name)
-                        category = get_product_category(name, category_keywords)
-                        products.append({
-                            "name": name.title(),
-                            "price": int(price),
-                            "category": category,
-                            "description": f"Fresh {name.title()}",
-                            "unit": unit,
-                            "quantity": int(quantity)
-                        })
-                elif len(match) == 3:
-                    if match[1].isdigit():
-                        name, price, unit = match
-                        if name not in extracted_names:
-                            extracted_names.add(name)
-                            category = get_product_category(name, category_keywords)
-                            products.append({
-                                "name": name.title(),
-                                "price": int(price),
-                                "category": category,
-                                "description": f"Fresh {name.title()}",
-                                "unit": unit,
-                                "quantity": 1
-                            })
-                    else:
-                        name, unit, price = match
-                        if name not in extracted_names:
-                            extracted_names.add(name)
-                            category = get_product_category(name, category_keywords)
-                            products.append({
-                                "name": name.title(),
-                                "price": int(price),
-                                "category": category,
-                                "description": f"Fresh {name.title()}",
-                                "unit": unit,
-                                "quantity": 1
-                            })
-                elif len(match) == 2:
-                    if match[0].isdigit():
-                        quantity, unit, name = match
-                        if name not in extracted_names:
-                            extracted_names.add(name)
-                            category = get_product_category(name, category_keywords)
-                            products.append({
-                                "name": name.title(),
-                                "price": 0,
-                                "category": category,
-                                "description": f"Fresh {name.title()}",
-                                "unit": unit,
-                                "quantity": int(quantity)
-                            })
-                    else:
-                        name, price = match
-                        if name not in extracted_names:
-                            extracted_names.add(name)
-                            category = get_product_category(name, category_keywords)
-                            products.append({
-                                "name": name.title(),
-                                "price": int(price),
-                                "category": category,
-                                "description": f"Fresh {name.title()}",
-                                "unit": "pcs",
-                                "quantity": 1
-                            })
-            else:
-                name = match.strip()
-                if len(name) > 2 and name not in extracted_names:
-                    extracted_names.add(name)
-                    category = get_product_category(name, category_keywords)
-                    products.append({
-                        "name": name.title(),
-                        "price": 0,
-                        "category": category,
-                        "description": f"Fresh {name.title()}",
-                        "unit": "pcs",
-                        "quantity": 1
-                    })
+            if not isinstance(match, tuple):
+                continue
+                
+            name = None
+            quantity = 1
+            unit = "pcs"
+            price = 0
+            
+            # Pattern 0: name quantity unit price - e.g., "rice 2 kg 400"
+            if pattern_idx == 0 and len(match) == 4:
+                name, quantity, unit, price = match
+                quantity = int(quantity)
+                price = int(price)
+            
+            # Pattern 1: quantity unit name price - e.g., "2 kg rice 400"
+            elif pattern_idx == 1 and len(match) == 4:
+                quantity, unit, name, price = match
+                quantity = int(quantity)
+                price = int(price)
+            
+            # Pattern 2: name unit price - e.g., "rice kg 400"
+            elif pattern_idx == 2 and len(match) == 3:
+                name, unit, price = match
+                price = int(price)
+                quantity = 1
+            
+            # Pattern 3: name price unit - e.g., "rice 400 kg"
+            elif pattern_idx == 3 and len(match) == 3:
+                name, price, unit = match
+                price = int(price)
+                quantity = 1
+            
+            # Pattern 4: name price - e.g., "rice 400"
+            elif pattern_idx == 4 and len(match) == 2:
+                name, price = match
+                price = int(price)
+                quantity = 1
+                unit = "pcs"
+            
+            # Add product if name was extracted, is not a unit keyword, and not already seen
+            if name and name not in unit_keywords and name not in extracted_names:
+                extracted_names.add(name)
+                category = get_product_category(name, category_keywords)
+                products.append({
+                    "name": name.title(),
+                    "price": price,
+                    "category": category,
+                    "description": f"Fresh {name.title()}",
+                    "unit": unit,
+                    "quantity": quantity
+                })
     
     for keyword in product_keywords:
         if keyword in text_lower and keyword not in extracted_names:
@@ -642,7 +628,7 @@ def transcribe_audio(path):
 @app.route("/")
 def index():
     return jsonify({
-        "message": "AI-SST Backend API is running",
+        "message": "Ekthaa AI STT Backend API is running",
         "endpoints": [
             "/upload_business_audio (POST)",
             "/upload_product_audio (POST)", 
