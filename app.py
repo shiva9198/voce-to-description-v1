@@ -327,8 +327,11 @@ def extract_business_info_fallback(text):
                             "name": name.title(),
                             "price": int(price),
                             "category": "General",
+                            "subcategory": "",
                             "description": f"Fresh {name.title()}",
                             "unit": unit,
+                            "unitQuantity": int(quantity),
+                            "minimumOrderQuantity": 1,
                             "quantity": int(quantity)
                         })
                 elif len(match) == 3:  # name, price, unit OR quantity, unit, name
@@ -339,8 +342,11 @@ def extract_business_info_fallback(text):
                                 "name": name.title(),
                                 "price": int(match[2]),
                                 "category": "General", 
+                                "subcategory": "",
                                 "description": f"Fresh {name.title()}",
                                 "unit": unit,
+                                "unitQuantity": int(quantity),
+                                "minimumOrderQuantity": 1,
                                 "quantity": int(quantity)
                             })
                     else:  # name, price, unit
@@ -350,8 +356,11 @@ def extract_business_info_fallback(text):
                                 "name": name.title(),
                                 "price": int(price),
                                 "category": "General",
+                                "subcategory": "",
                                 "description": f"Fresh {name.title()}",
                                 "unit": unit,
+                                "unitQuantity": 1,
+                                "minimumOrderQuantity": 1,
                                 "quantity": 1
                             })
                 elif len(match) == 2:  # name, price OR quantity, unit
@@ -365,8 +374,11 @@ def extract_business_info_fallback(text):
                                 "name": name.title(),
                                 "price": int(price),
                                 "category": "General",
+                                "subcategory": "",
                                 "description": f"Fresh {name.title()}",
                                 "unit": "pcs",
+                                "unitQuantity": 1,
+                                "minimumOrderQuantity": 1,
                                 "quantity": 1
                             })
     
@@ -384,17 +396,23 @@ def extract_business_info_fallback(text):
                         "name": keyword.title(),
                         "price": 0,
                         "category": "General",
+                        "subcategory": "",
                         "description": f"Fresh {keyword.title()}",
                         "unit": "pcs",
+                        "unitQuantity": 1,
+                        "minimumOrderQuantity": 1,
                         "quantity": 1
                     })
                 elif plural in text_lower and plural not in [p["name"] for p in found_products]:
                     found_products.append({
                         "name": plural.title(),
                         "price": 0,
-                        "category": "General", 
+                        "category": "General",
+                        "subcategory": "", 
                         "description": f"Fresh {plural.title()}",
                         "unit": "pcs",
+                        "unitQuantity": 1,
+                        "minimumOrderQuantity": 1,
                         "quantity": 1
                     })
     
@@ -413,23 +431,28 @@ def extract_products_llm(text):
         prompt = f"""Extract product information from the following text.
 Return a JSON array of products with these exact fields:
 - name: product name (can be multiple words, e.g., "Premium Basmati Rice")
-- price: price in rupees (number only, use 0 if not mentioned)
-- quantity: quantity available (number only, use 1 if not mentioned)
+- price: price per unit in rupees (number only, use 0 if not mentioned)
 - unit: unit of measurement (kg, gram, liter, piece, pcs, etc. - use lowercase)
-- category: product category (Food, Electronics, Clothing, etc.)
+- unitQuantity: total quantity available (number only, use 1 if not mentioned)
+- minimumOrderQuantity: minimum order quantity (number only, use 1 if not mentioned)
+- category: product category (Groceries, Electronics, Clothing, Food, etc.)
+- subcategory: product subcategory (Rice, Wheat, Vegetables, etc.)
 - description: brief description
 
-Important:
+Important extraction rules:
 - Extract the FULL product name including adjectives (e.g., "Premium Basmati Rice" not just "Rice")
-- Look for price keywords: "price is", "costs", "rupees", "rs"
-- Look for quantity keywords: "quantity", "available", "stock"
-- Look for unit keywords: "kilogram", "kg", "gram", "liter", "piece"
-- Convert "kilogram" to "kg", "piece" to "pcs"
+- Look for price keywords: "price is", "costs", "rupees", "rs", "per kg", "per unit"
+- Look for category keywords: "category", "category is"
+- Look for subcategory keywords: "subcategory", "subcategory is", "type"
+- Look for total quantity keywords: "total quantity available", "available", "stock", "quantity available"
+- Look for minimum order keywords: "minimum order quantity", "min order", "minimum quantity"
+- Look for unit keywords: "units is", "unit", "per kg", "per liter"
+- Convert "kilogram" to "kg", "piece" to "pcs", "pieces" to "pcs"
 
 Text: {text}
 
 Return ONLY a valid JSON array, no other text. Example format:
-[{{"name": "Premium Basmati Rice", "price": 120, "quantity": 50, "unit": "kg", "category": "Food", "description": "High quality aged Basmati rice"}}]"""
+[{{"name": "Premium Basmati Rice", "price": 12, "unit": "kg", "unitQuantity": 50, "minimumOrderQuantity": 5, "category": "Groceries", "subcategory": "Rice", "description": "High quality aged Basmati rice perfect for biryani and daily cooking"}}]"""
 
         print("🤖 Calling Groq LLM for product extraction...")
         response = groq_client.chat.completions.create(
@@ -514,7 +537,8 @@ def extract_products_fallback(text):
     ]
     
     category_keywords = {
-        "Food": ["tomato", "potato", "onion", "vegetable", "fruit", "rice", "wheat", "flour", "milk", "bread", "egg", "chicken", "meat", "fish", "sugar", "salt", "oil", "tea", "coffee", "butter", "cheese", "curd", "sweet", "snack", "chocolate", "biscuit"],
+        "Groceries": ["tomato", "potato", "onion", "vegetable", "fruit", "rice", "wheat", "flour", "milk", "bread", "egg", "chicken", "meat", "fish", "sugar", "salt", "oil", "tea", "coffee", "butter", "cheese", "curd"],
+        "Food": ["sweet", "snack", "chocolate", "biscuit"],
         "Electronics": ["phone", "laptop", "computer", "tablet", "camera", "tv", "headphone", "speaker"],
         "Clothing": ["shirt", "pants", "dress", "jeans", "t-shirt", "jacket", "shoes", "socks"],
         "Home & Kitchen": ["soap", "shampoo", "toothpaste", "detergent", "paper", "pen", "plate", "cup", "bowl"],
@@ -525,11 +549,49 @@ def extract_products_fallback(text):
         "Health": ["medicine", "tablet", "vitamin", "cream", "oil"]
     }
     
+    subcategory_keywords = {
+        "Rice": ["rice", "basmati"],
+        "Wheat": ["wheat", "atta", "flour"],
+        "Vegetables": ["tomato", "potato", "onion", "vegetable"],
+        "Fruits": ["fruit", "apple", "banana", "mango"],
+        "Dairy": ["milk", "butter", "cheese", "curd"],
+        "Bakery": ["bread", "biscuit", "cake"],
+        "Meat": ["chicken", "meat", "fish", "egg"],
+        "Spices": ["sugar", "salt", "oil", "tea", "coffee"]
+    }
     
     extracted_names = set()
     
-    # Unit keywords that should never be product names
-    unit_keywords = {'kg', 'grams', 'pcs', 'pieces', 'liter', 'litre', 'dozen', 'packet', 'bottle', 'box', 'gram', 'kilogram'}
+    # Unit keywords and stopwords that should never be product names
+    unit_keywords = {
+        'kg', 'grams', 'pcs', 'pieces', 'liter', 'litre', 'dozen', 'packet', 'bottle', 'box', 'gram', 'kilogram',
+        'is', 'are', 'was', 'were', 'total', 'quantity', 'available', 'min', 'minimum', 'max', 'maximum', 'order',
+        'rs', 'rupees', 'price', 'cost', 'unit', 'units'
+    }
+    
+    # Extract category from text
+    extracted_category = "General"
+    category_match = re.search(r'category\s+(?:is\s+)?([a-zA-Z\s]+?)(?:\s+(?:subcategory|units|price|quantity|minimum|description|this|perfect|high|quality))', text_lower)
+    if category_match:
+        extracted_category = category_match.group(1).strip().title()
+    
+    # Extract subcategory from text
+    extracted_subcategory = ""
+    subcategory_match = re.search(r'subcategory\s+(?:is\s+)?([a-zA-Z\s]+?)(?:\s+(?:units|price|quantity|minimum|description|this|perfect|high|quality))', text_lower)
+    if subcategory_match:
+        extracted_subcategory = subcategory_match.group(1).strip().title()
+    
+    # Extract total quantity available
+    total_quantity = 1
+    quantity_match = re.search(r'(?:total\s+)?quantity\s+(?:available\s+)?(?:is\s+)?(\d+)', text_lower)
+    if quantity_match:
+        total_quantity = int(quantity_match.group(1))
+    
+    # Extract minimum order quantity
+    min_order_quantity = 1
+    min_order_match = re.search(r'minimum\s+order\s+quantity\s+(?:is\s+)?(\d+)', text_lower)
+    if min_order_match:
+        min_order_quantity = int(min_order_match.group(1))
     
     # Process each pattern in priority order
     for pattern_idx, pattern in enumerate(product_patterns):
@@ -577,27 +639,33 @@ def extract_products_fallback(text):
             # Add product if name was extracted, is not a unit keyword, and not already seen
             if name and name not in unit_keywords and name not in extracted_names:
                 extracted_names.add(name)
-                category = get_product_category(name, category_keywords)
+                category = extracted_category if extracted_category != "General" else get_product_category(name, category_keywords)
+                subcategory = extracted_subcategory if extracted_subcategory else get_product_subcategory(name, subcategory_keywords)
                 products.append({
                     "name": name.title(),
                     "price": price,
-                    "category": category,
-                    "description": f"Fresh {name.title()}",
                     "unit": unit,
-                    "quantity": quantity
+                    "unitQuantity": total_quantity,
+                    "minimumOrderQuantity": min_order_quantity,
+                    "category": category,
+                    "subcategory": subcategory,
+                    "description": f"Fresh {name.title()}"
                 })
     
     for keyword in product_keywords:
         if keyword in text_lower and keyword not in extracted_names:
             extracted_names.add(keyword)
-            category = get_product_category(keyword, category_keywords)
+            category = extracted_category if extracted_category != "General" else get_product_category(keyword, category_keywords)
+            subcategory = extracted_subcategory if extracted_subcategory else get_product_subcategory(keyword, subcategory_keywords)
             products.append({
                 "name": keyword.title(),
                 "price": 0,
-                "category": category,
-                "description": f"Fresh {keyword.title()}",
                 "unit": "pcs",
-                "quantity": 1
+                "unitQuantity": total_quantity,
+                "minimumOrderQuantity": min_order_quantity,
+                "category": category,
+                "subcategory": subcategory,
+                "description": f"Fresh {keyword.title()}"
             })
     
     unique_products = []
@@ -618,6 +686,15 @@ def get_product_category(product_name, category_keywords):
             if keyword in product_lower:
                 return category
     return "General"
+
+def get_product_subcategory(product_name, subcategory_keywords):
+    """Helper function to determine product subcategory"""
+    product_lower = product_name.lower()
+    for subcategory, keywords in subcategory_keywords.items():
+        for keyword in keywords:
+            if keyword in product_lower:
+                return subcategory
+    return ""
 
 # ================== TRANSCRIPTION ==================
 def transcribe_audio(path):
@@ -776,8 +853,11 @@ def upload_business_audio():
                     "name": item,
                     "price": 0,
                     "category": "",
+                    "subcategory": "",
                     "description": f"Fresh {item}",
                     "unit": "",
+                    "unitQuantity": 1,
+                    "minimumOrderQuantity": 1,
                     "quantity": 1
                 })
             elif isinstance(item, dict):
@@ -785,8 +865,11 @@ def upload_business_audio():
                     "name": item.get("name", ""),
                     "price": item.get("price", 0),
                     "category": item.get("category", ""),
+                    "subcategory": item.get("subcategory", ""),
                     "description": item.get("description", ""),
                     "unit": item.get("unit", ""),
+                    "unitQuantity": item.get("unitQuantity", 1),
+                    "minimumOrderQuantity": item.get("minimumOrderQuantity", 1),
                     "quantity": item.get("quantity", 1)
                 })
             else:
@@ -794,8 +877,11 @@ def upload_business_audio():
                     "name": str(item),
                     "price": 0,
                     "category": "",
+                    "subcategory": "",
                     "description": f"Fresh {item}",
                     "unit": "",
+                    "unitQuantity": 1,
+                    "minimumOrderQuantity": 1,
                     "quantity": 1
                 })
 
