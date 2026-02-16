@@ -403,8 +403,81 @@ def extract_business_info_fallback(text):
     return result
 
 # ================== PRODUCT EXTRACTION ==================
+def extract_products_llm(text):
+    """Extract products using Groq LLM with structured output"""
+    try:
+        if not groq_client:
+            print("❌ Groq client not available for LLM extraction")
+            return None
+            
+        prompt = f"""Extract product information from the following text.
+Return a JSON array of products with these exact fields:
+- name: product name (can be multiple words, e.g., "Premium Basmati Rice")
+- price: price in rupees (number only, use 0 if not mentioned)
+- quantity: quantity available (number only, use 1 if not mentioned)
+- unit: unit of measurement (kg, gram, liter, piece, pcs, etc. - use lowercase)
+- category: product category (Food, Electronics, Clothing, etc.)
+- description: brief description
+
+Important:
+- Extract the FULL product name including adjectives (e.g., "Premium Basmati Rice" not just "Rice")
+- Look for price keywords: "price is", "costs", "rupees", "rs"
+- Look for quantity keywords: "quantity", "available", "stock"
+- Look for unit keywords: "kilogram", "kg", "gram", "liter", "piece"
+- Convert "kilogram" to "kg", "piece" to "pcs"
+
+Text: {text}
+
+Return ONLY a valid JSON array, no other text. Example format:
+[{{"name": "Premium Basmati Rice", "price": 120, "quantity": 50, "unit": "kg", "category": "Food", "description": "High quality aged Basmati rice"}}]"""
+
+        print("🤖 Calling Groq LLM for product extraction...")
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+            max_tokens=1500
+        )
+        
+        result = response.choices[0].message.content.strip()
+        print(f"📝 LLM Response: {result[:200]}...")
+        
+        # Try to extract JSON from response
+        # Sometimes LLM wraps JSON in markdown code blocks
+        if "```json" in result:
+            result = result.split("```json")[1].split("```")[0].strip()
+        elif "```" in result:
+            result = result.split("```")[1].split("```")[0].strip()
+        
+        products = json.loads(result)
+        
+        if not isinstance(products, list):
+            print("❌ LLM response is not a list")
+            return None
+            
+        print(f"✅ LLM extracted {len(products)} products")
+        return products
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ LLM extraction JSON parse error: {e}")
+        print(f"   Raw response: {result[:200]}")
+        return None
+    except Exception as e:
+        print(f"❌ LLM extraction failed: {e}")
+        return None
+
 def extract_products(text):
-    print("🔄 Using fallback product extraction")
+    """Extract products using LLM first, fallback to regex"""
+    # Try LLM extraction first
+    print("🤖 Attempting LLM product extraction...")
+    llm_products = extract_products_llm(text)
+    
+    if llm_products and len(llm_products) > 0:
+        print(f"✅ Using LLM-extracted products: {len(llm_products)} products")
+        return llm_products
+    
+    # Fallback to regex
+    print("🔄 LLM extraction failed or returned no products, using regex fallback")
     return extract_products_fallback(text)
 
 def extract_products_fallback(text):
