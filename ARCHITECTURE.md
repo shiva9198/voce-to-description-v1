@@ -212,8 +212,8 @@ data/
 - **Data Retention**: Manual cleanup required
 
 ### 3. API Security
-- **CORS Configuration**: Restricted origins
-- **Rate Limiting**: Basic implementation possible
+- **CORS Configuration**: Permissive in the current prototype; restrict origins before production
+- **Rate Limiting**: Not implemented in the current prototype
 - **Input Sanitization**: XSS prevention
 - **Error Messages**: Non-sensitive error details
 

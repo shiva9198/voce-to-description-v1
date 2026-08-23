@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from groq import Groq
+from session_paths import resolve_session_path
 import os
 
 # Load environment variables first
@@ -1021,7 +1022,10 @@ def save_edited_data():
     if not filename or not session_data:
         return jsonify({"error": "Missing filename or data"}), 400
     
-    file_path = os.path.join(DATA_FOLDER, filename)
+    try:
+        file_path = resolve_session_path(DATA_FOLDER, filename)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     
     if "transcription" not in session_data:
         session_data["transcription"] = ""
@@ -1047,7 +1051,10 @@ def editor():
 
 @app.route("/get_session/<filename>")
 def get_session(filename):
-    file_path = os.path.join(DATA_FOLDER, filename)
+    try:
+        file_path = resolve_session_path(DATA_FOLDER, filename)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     if os.path.exists(file_path):
         with open(file_path, "r") as f:
             data = json.load(f)
@@ -1090,12 +1097,14 @@ def get_sessions():
 @app.route("/delete_session/<filename>", methods=["DELETE"])
 def delete_session(filename):
     try:
-        file_path = os.path.join(DATA_FOLDER, filename)
+        file_path = resolve_session_path(DATA_FOLDER, filename)
         if os.path.exists(file_path):
             os.remove(file_path)
             return jsonify({"success": True, "message": "Session deleted successfully"})
         else:
             return jsonify({"error": "Session file not found"}), 404
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
